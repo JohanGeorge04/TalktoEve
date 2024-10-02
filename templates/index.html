@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat Application</title>
+  <link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+  <div id="loading-screen">
+    <div id="loading-text">Loading...</div>
+  </div>
+
+  <div class="topnav">
+    <a href="#home" class="active">Home</a>
+  </div>
+
+  <div class="side" id="sidebar">
+    <button id="new-chat-button">New Conversation</button>
+    <h3>Conversations</h3>
+    <ul id="conversation-list"></ul>
+  </div>
+
+<div id="chat-container">
+  <div id="messages-container" style="border: 1px solid #ccc; padding: 10px; height: 525px; overflow-y: auto;">
+    <ul id="messages"></ul>
+  </div> 
+  <form id="form">
+    <input id="input" name="message" autocomplete="off" placeholder="Type your concern..." style="width: 80%;" />
+    <button type="submit">Send</button>
+  </form> 
+</div>
+
+  <script>
+    let currentConversationId = null;
+    let isNewChat = true;
+    const newChat = document.getElementById('new-chat-button');
+    const existingConversations = new Set();
+
+   
+    newChat.onclick = () => {
+      document.querySelectorAll('#conversation-list button').forEach(button => button.classList.remove('active'));
+      newChat.classList.add('active');
+      currentConversationId = null;
+      isNewChat = true;
+      document.getElementById('messages').innerHTML = '';
+    };
+
+    async function fetchConversations() {
+      try {
+        const response = await fetch('/api/conversations');
+        const conversations = await response.json();
+        const conversationList = document.getElementById('conversation-list');
+        const fragment = document.createDocumentFragment();
+
+        conversations.reverse().forEach(conversation => {
+          if (!existingConversations.has(conversation.id)) {
+            const li = document.createElement('li');
+            const button = document.createElement('button');
+            button.textContent = conversation.first_message || `Conversation ${conversation.id}`;
+            button.setAttribute('data-conversation-id', conversation.id);
+            button.onclick = () => loadConversation(conversation.id);
+            li.appendChild(button);
+            fragment.appendChild(li);
+            existingConversations.add(conversation.id);
+          }
+        });
+
+        conversationList.appendChild(fragment);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+      }
+    }
+
+    async function loadConversation(conversation_id) {
+      currentConversationId = conversation_id;
+      document.querySelectorAll('#conversation-list button').forEach(button => {
+        button.classList.remove('active');
+        if (button.getAttribute('data-conversation-id') === conversation_id.toString()) {
+          button.classList.add('active');
+          newChat.classList.remove('active');
+        }
+      });
+
+      try {
+        const response = await fetch(`/get_conversation/${conversation_id}`);
+        const data = await response.json();
+        const messageList = document.getElementById('messages');
+        messageList.innerHTML = '';
+        data.messages.forEach(message => appendMessage('user', message.user_message));
+        data.messages.forEach(message => appendMessage('ai', message.ai_response));
+      } catch (error) {
+        console.error('Error loading conversation:', error);
+      }
+    }
+
+    function appendMessage(role, messageContent) {
+      const messageList = document.getElementById('messages');
+      const li = document.createElement('li');
+      li.className = `message ${role}`;
+      li.innerHTML = `${messageContent}`;
+      messageList.appendChild(li);
+    }
+
+    const form = document.getElementById('form');
+    form.addEventListener('submit', async function(event) {
+      event.preventDefault();
+      const input = document.getElementById('input');
+      const message = input.value.trim();
+      if (!message) {
+        alert('Please enter a message.');
+        return;
+      }
+
+      try {
+        if (isNewChat) {
+          const createResponse = await fetch('/create_conversation', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          const createData = await createResponse.json();
+          if (createData.conversation_id) {
+            currentConversationId = createData.conversation_id;
+            isNewChat = false;
+            const conversationList = document.getElementById('conversation-list');
+            const li = document.createElement('li');
+            const button = document.createElement('button');
+            button.textContent = message;
+            button.setAttribute('data-conversation-id', currentConversationId);
+            button.onclick = () => loadConversation(currentConversationId);
+            li.appendChild(button);
+            conversationList.insertBefore(li, conversationList.firstChild);
+            existingConversations.add(currentConversationId);
+          } else {
+            console.error('Failed to create a conversation');
+          }
+        }
+
+        const response = await fetch('/get_response', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_input: message, conversation_id: currentConversationId }),
+        });
+
+        const data = await response.json();
+        appendMessage('user', message);
+        appendMessage('ai', data.response);
+        input.value = '';
+      } catch (error) {
+        console.error('Error sending message:', error);
+      }
+    });
+
+    window.onload = async function() {
+      await fetchConversations();
+      document.getElementById('loading-screen').style.display = 'none';
+      document.getElementById('chat-container').style.display = 'block';
+    };
+  </script>
+</body>
+</html>

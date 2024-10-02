@@ -1,0 +1,5 @@
+datasets
+Flask
+openai
+python-dotenv
+mysql-connector-python
