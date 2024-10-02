@@ -82,7 +82,7 @@ def get_response():
 
   
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="ft:gpt-3.5-turbo-0125:personal::ACrPOq4L",
             messages=[{"role": "user", "content": user_input}],
             temperature=1,
             max_tokens=2048,
