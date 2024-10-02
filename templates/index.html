@@ -72,26 +72,37 @@
     }
 
     async function loadConversation(conversation_id) {
-      currentConversationId = conversation_id;
-      document.querySelectorAll('#conversation-list button').forEach(button => {
+    currentConversationId = conversation_id;
+    document.querySelectorAll('#conversation-list button').forEach(button => {
         button.classList.remove('active');
         if (button.getAttribute('data-conversation-id') === conversation_id.toString()) {
-          button.classList.add('active');
-          newChat.classList.remove('active');
+            button.classList.add('active');
+            newChat.classList.remove('active');
         }
-      });
+    });
 
-      try {
+    try {
         const response = await fetch(`/get_conversation/${conversation_id}`);
         const data = await response.json();
         const messageList = document.getElementById('messages');
-        messageList.innerHTML = '';
-        data.messages.forEach(message => appendMessage('user', message.user_message));
-        data.messages.forEach(message => appendMessage('ai', message.ai_response));
-      } catch (error) {
+        messageList.innerHTML = ''; 
+
+        data.messages.forEach(message => {
+           
+            if (message.user_message) {
+                appendMessage('user', message.user_message);
+            }
+           
+            if (message.ai_response) {
+                appendMessage('ai', message.ai_response);
+            }
+        });
+    } catch (error) {
         console.error('Error loading conversation:', error);
-      }
     }
+}
+
+    
 
     function appendMessage(role, messageContent) {
       const messageList = document.getElementById('messages');
